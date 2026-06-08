@@ -1,0 +1,21 @@
+# Generic build for both LobeHub gateways.
+# Build context must be the upstream repo root (contains device-gateway-go/ and agent-gateway-go/).
+# Select the component via the COMPONENT build-arg.
+#   COMPONENT=device-gateway-go | agent-gateway-go
+ARG GO_VERSION=1.23
+
+FROM golang:${GO_VERSION}-alpine AS builder
+ARG COMPONENT
+RUN test -n "${COMPONENT}" || (echo "COMPONENT build-arg is required" && false)
+WORKDIR /src
+# Each component is its own standalone Go module (no external deps, no go.sum).
+COPY ${COMPONENT}/ ./
+RUN CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /out/gateway ./cmd/${COMPONENT}
+
+FROM alpine:3.20
+RUN adduser -D -H -u 10001 appuser
+USER appuser
+EXPOSE 8787
+ENV PORT=8787
+COPY --from=builder /out/gateway /usr/local/bin/gateway
+ENTRYPOINT ["gateway"]

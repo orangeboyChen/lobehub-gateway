@@ -1,0 +1,27 @@
+name: Manual Build
+
+# Manually build a single gateway component at a chosen upstream version.
+on:
+  workflow_dispatch:
+    inputs:
+      component:
+        description: "Which gateway to build"
+        required: true
+        type: choice
+        options:
+          - device-gateway-go
+          - agent-gateway-go
+      version:
+        description: "Upstream version (e.g. v0.1.0)"
+        required: true
+        type: string
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-gateway.yml
+    permissions:
+      contents: read
+      packages: write
+    with:
+      component: ${{ inputs.component }}
+      version: ${{ inputs.version }}

@@ -1,0 +1,73 @@
+name: Nightly Sync
+
+# Every night, check upstream for the latest release of each gateway
+# component and build an image if that version hasn't been built yet.
+on:
+  schedule:
+    # 22:00 UTC daily (06:00 Asia/Shanghai next day)
+    - cron: "0 22 * * *"
+  workflow_dispatch: {}
+
+env:
+  UPSTREAM_REPO: lobehub/lobehub-gateway
+  REGISTRY: ghcr.io
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.check.outputs.matrix }}
+      any: ${{ steps.check.outputs.any }}
+    steps:
+      - name: Find new versions
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          OWNER_LC="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          INCLUDES=""
+          for COMPONENT in device-gateway-go agent-gateway-go; do
+            # Latest release tag for this component: <component>/vX.Y.Z
+            VERSION="$(gh api "repos/${UPSTREAM_REPO}/releases" --paginate \
+              --jq "[.[] | select(.draft==false) | select(.prerelease==false) | .tag_name | select(startswith(\"${COMPONENT}/\"))][0]" \
+              | sed "s#${COMPONENT}/##")"
+            if [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
+              echo "No release found for ${COMPONENT}, skipping."
+              continue
+            fi
+            SHORT="${COMPONENT%-go}"
+            IMAGE_NAME="lobehub-${SHORT}"
+            SEMVER="${VERSION#v}"
+            # Does this version already exist as a GHCR package tag?
+            EXISTS="$(gh api "users/${OWNER_LC}/packages/container/${IMAGE_NAME}/versions" \
+              --jq "[.[] | .metadata.container.tags[]] | index(\"${SEMVER}\")" 2>/dev/null || echo "")"
+            if [ -n "$EXISTS" ] && [ "$EXISTS" != "null" ]; then
+              echo "${IMAGE_NAME}:${SEMVER} already built, skipping."
+              continue
+            fi
+            echo "Queueing ${IMAGE_NAME}:${SEMVER} (upstream ${COMPONENT}/${VERSION})."
+            ITEM="{\"component\":\"${COMPONENT}\",\"version\":\"${VERSION}\"}"
+            if [ -z "$INCLUDES" ]; then INCLUDES="$ITEM"; else INCLUDES="${INCLUDES},${ITEM}"; fi
+          done
+          if [ -z "$INCLUDES" ]; then
+            echo "any=false" >> "$GITHUB_OUTPUT"
+            echo "matrix={\"include\":[]}" >> "$GITHUB_OUTPUT"
+          else
+            echo "any=true" >> "$GITHUB_OUTPUT"
+            echo "matrix={\"include\":[${INCLUDES}]}" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    needs: detect
+    if: needs.detect.outputs.any == 'true'
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.detect.outputs.matrix) }}
+    uses: ./.github/workflows/build-gateway.yml
+    with:
+      component: ${{ matrix.component }}
+      version: ${{ matrix.version }}

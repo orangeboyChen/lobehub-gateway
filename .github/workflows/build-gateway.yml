@@ -1,0 +1,107 @@
+name: Build Gateway Image
+
+# Reusable workflow: checks out the upstream tag for a single gateway
+# component and builds + pushes a multi-arch image to GitHub Packages (GHCR).
+on:
+  workflow_call:
+    inputs:
+      component:
+        description: "Gateway component (device-gateway-go | agent-gateway-go)"
+        required: true
+        type: string
+      version:
+        description: "Upstream version, e.g. v0.1.0"
+        required: true
+        type: string
+    outputs:
+      image:
+        description: "Pushed image reference"
+        value: ${{ jobs.build.outputs.image }}
+
+env:
+  UPSTREAM_REPO: lobehub/lobehub-gateway
+  REGISTRY: ghcr.io
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+    steps:
+      - name: Resolve names
+        id: meta
+        run: |
+          set -euo pipefail
+          COMPONENT='${{ inputs.component }}'
+          VERSION='${{ inputs.version }}'
+          case "$COMPONENT" in
+            device-gateway-go|agent-gateway-go) ;;
+            *) echo "::error::Invalid component: $COMPONENT"; exit 1 ;;
+          esac
+          # lobehub-device-gateway / lobehub-agent-gateway
+          SHORT="${COMPONENT%-go}"
+          IMAGE_NAME="lobehub-${SHORT}"
+          OWNER='${{ github.repository_owner }}'
+          OWNER_LC="$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')"
+          IMAGE="${{ env.REGISTRY }}/${OWNER_LC}/${IMAGE_NAME}"
+          # Upstream tag form: device-gateway-go/v0.1.0
+          TAG="${COMPONENT}/${VERSION}"
+          # Image tag cannot contain '/', drop the v prefix for the semver tag
+          SEMVER="${VERSION#v}"
+          {
+            echo "component=$COMPONENT"
+            echo "version=$VERSION"
+            echo "upstream_tag=$TAG"
+            echo "image=$IMAGE"
+            echo "semver=$SEMVER"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Checkout upstream tag
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.UPSTREAM_REPO }}
+          ref: ${{ steps.meta.outputs.upstream_tag }}
+          path: upstream
+
+      - name: Checkout this repo (for Dockerfile)
+        uses: actions/checkout@v4
+        with:
+          path: self
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: upstream
+          file: self/Dockerfile.gateway
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            COMPONENT=${{ steps.meta.outputs.component }}
+          tags: |
+            ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.semver }}
+            ${{ steps.meta.outputs.image }}:latest
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.meta.outputs.version }}
+            org.opencontainers.image.title=lobehub-${{ steps.meta.outputs.component }}
+
+      - name: Summary
+        run: |
+          echo "Built **${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.semver }}**" >> "$GITHUB_STEP_SUMMARY"
+          echo "(also tagged \`latest\`) from upstream \`${{ steps.meta.outputs.upstream_tag }}\`" >> "$GITHUB_STEP_SUMMARY"
