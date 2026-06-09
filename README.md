@@ -21,25 +21,25 @@ The original gateway implementations remain the protocol reference. This reposit
 | [`device-gateway-go`](./device-gateway-go/README.md) | Implemented | Device gateway for routing LobeHub device connections, status queries, tool calls, system information, and agent-run requests. |
 | [`agent-gateway-go`](./agent-gateway-go/README.md) | Implemented | Agent gateway for relaying browser WebSocket sessions and server-pushed agent events. |
 
-## Container Images
+## Installation
 
-Gateway images are available at:
+Use a version from the GitHub Releases page. See each gateway README for required environment variables and runtime configuration.
 
-| Project | GHCR | Docker Hub |
-| --- | --- | --- |
-| `device-gateway-go` | `ghcr.io/lobehub/device-gateway-go` | `lobehub/device-gateway-go` |
-| `agent-gateway-go` | `ghcr.io/lobehub/agent-gateway-go` | `lobehub/agent-gateway-go` |
-
-Use release version tags such as `v0.1.0`:
+### device-gateway-go
 
 ```bash
-docker pull ghcr.io/lobehub/device-gateway-go:v0.1.0
-docker pull ghcr.io/lobehub/agent-gateway-go:v0.1.0
-docker pull lobehub/device-gateway-go:v0.1.0
-docker pull lobehub/agent-gateway-go:v0.1.0
+docker run -d \
+  --name device-gateway-go \
+  ghcr.io/lobehub/device-gateway-go:<version>
 ```
 
-`latest` tracks the latest non-prerelease image when published.
+### agent-gateway-go
+
+```bash
+docker run -d \
+  --name agent-gateway-go \
+  ghcr.io/lobehub/agent-gateway-go:<version>
+```
 
 ## Architecture
 

@@ -21,25 +21,25 @@
 | [`device-gateway-go`](./device-gateway-go/README.md) | 已实现 | 设备网关，用于路由 LobeHub 设备连接、状态查询、工具调用、系统信息和 agent 运行请求。 |
 | [`agent-gateway-go`](./agent-gateway-go/README.md) | 已实现 | Agent 网关，用于中转浏览器 WebSocket 会话和服务端推送的 agent 事件流。 |
 
-## 容器镜像
+## 安装
 
-Gateway 镜像位置如下：
+版本号请参考 GitHub Releases。环境变量和运行配置请查看各 gateway 的 README。
 
-| 项目 | GHCR | Docker Hub |
-| --- | --- | --- |
-| `device-gateway-go` | `ghcr.io/lobehub/device-gateway-go` | `lobehub/device-gateway-go` |
-| `agent-gateway-go` | `ghcr.io/lobehub/agent-gateway-go` | `lobehub/agent-gateway-go` |
-
-可以使用 `v0.1.0` 这类 release 版本 tag：
+### device-gateway-go
 
 ```bash
-docker pull ghcr.io/lobehub/device-gateway-go:v0.1.0
-docker pull ghcr.io/lobehub/agent-gateway-go:v0.1.0
-docker pull lobehub/device-gateway-go:v0.1.0
-docker pull lobehub/agent-gateway-go:v0.1.0
+docker run -d \
+  --name device-gateway-go \
+  ghcr.io/lobehub/device-gateway-go:<version>
 ```
 
-`latest` 指向已发布的最新非 prerelease 镜像。
+### agent-gateway-go
+
+```bash
+docker run -d \
+  --name agent-gateway-go \
+  ghcr.io/lobehub/agent-gateway-go:<version>
+```
 
 ## 架构
 
