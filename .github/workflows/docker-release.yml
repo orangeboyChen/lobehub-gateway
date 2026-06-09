@@ -34,6 +34,8 @@ jobs:
           RELEASE_TAG: ${{ github.event.release.tag_name || inputs.release_tag }}
           PRERELEASE: ${{ github.event.release.prerelease || inputs.prerelease }}
           REPOSITORY_OWNER: ${{ github.repository_owner }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
           set -euo pipefail
 
@@ -57,17 +59,25 @@ jobs:
           image="ghcr.io/${owner}/${service}"
 
           tags="${image}:${version}"
-          # Optional Docker Hub publishing:
-          # dockerhub_image="lobehub/${service}"
-          # tags="${tags}"$'\n'"${dockerhub_image}:${version}"
+          dockerhub_enabled=false
+          if [[ -n "$DOCKERHUB_USERNAME" && -n "$DOCKERHUB_TOKEN" ]]; then
+            dockerhub_enabled=true
+            dockerhub_image="lobehub/${service}"
+            tags="${tags}"$'\n'"${dockerhub_image}:${version}"
+          elif [[ -n "$DOCKERHUB_USERNAME" || -n "$DOCKERHUB_TOKEN" ]]; then
+            echo "::notice::Docker Hub publishing is skipped because one of DOCKERHUB_USERNAME or DOCKERHUB_TOKEN is missing."
+          fi
+
           if [[ "$PRERELEASE" != "true" ]]; then
             tags="${tags}"$'\n'"${image}:latest"
-            # Optional Docker Hub publishing:
-            # tags="${tags}"$'\n'"${dockerhub_image}:latest"
+            if [[ "$dockerhub_enabled" == "true" ]]; then
+              tags="${tags}"$'\n'"${dockerhub_image}:latest"
+            fi
           fi
 
           {
             echo "should_build=true"
+            echo "dockerhub_enabled=${dockerhub_enabled}"
             echo "service=${service}"
             echo "version=${version}"
             echo "image=${image}"
@@ -88,12 +98,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # - name: Login to Docker Hub
-      #   if: steps.release.outputs.should_build == 'true'
-      #   uses: docker/login-action@v3
-      #   with:
-      #     username: ${{ secrets.DOCKERHUB_USERNAME }}
-      #     password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Login to Docker Hub
+        if: steps.release.outputs.dockerhub_enabled == 'true'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push
         if: steps.release.outputs.should_build == 'true'

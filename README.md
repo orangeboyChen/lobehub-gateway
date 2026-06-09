@@ -23,21 +23,23 @@ The original gateway implementations remain the protocol reference. This reposit
 
 ## Container Images
 
-Published releases for each gateway are built as GHCR images:
+Gateway images are available at:
 
-| Release tag prefix | Image |
-| --- | --- |
-| `device-gateway-go` | `ghcr.io/lobehub/device-gateway-go` |
-| `agent-gateway-go` | `ghcr.io/lobehub/agent-gateway-go` |
+| Project | GHCR | Docker Hub |
+| --- | --- | --- |
+| `device-gateway-go` | `ghcr.io/lobehub/device-gateway-go` | `lobehub/device-gateway-go` |
+| `agent-gateway-go` | `ghcr.io/lobehub/agent-gateway-go` | `lobehub/agent-gateway-go` |
 
-The release workflow accepts tags such as `device-gateway-go v0.1.0`, `device-gateway-go-v0.1.0`, or `device-gateway-go/v0.1.0`. The version part is used as the image tag, for example:
+Use release version tags such as `v0.1.0`:
 
 ```bash
 docker pull ghcr.io/lobehub/device-gateway-go:v0.1.0
 docker pull ghcr.io/lobehub/agent-gateway-go:v0.1.0
+docker pull lobehub/device-gateway-go:v0.1.0
+docker pull lobehub/agent-gateway-go:v0.1.0
 ```
 
-Non-prerelease builds also update `latest`.
+`latest` tracks the latest non-prerelease image when published.
 
 ## Architecture
 

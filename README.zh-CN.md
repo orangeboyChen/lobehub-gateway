@@ -23,21 +23,23 @@
 
 ## 容器镜像
 
-各 gateway 的 release 会构建并发布到 GHCR：
+Gateway 镜像位置如下：
 
-| Release tag 前缀 | 镜像 |
-| --- | --- |
-| `device-gateway-go` | `ghcr.io/lobehub/device-gateway-go` |
-| `agent-gateway-go` | `ghcr.io/lobehub/agent-gateway-go` |
+| 项目 | GHCR | Docker Hub |
+| --- | --- | --- |
+| `device-gateway-go` | `ghcr.io/lobehub/device-gateway-go` | `lobehub/device-gateway-go` |
+| `agent-gateway-go` | `ghcr.io/lobehub/agent-gateway-go` | `lobehub/agent-gateway-go` |
 
-发布 workflow 支持 `device-gateway-go v0.1.0`、`device-gateway-go-v0.1.0` 或 `device-gateway-go/v0.1.0` 这类 tag。版本部分会作为镜像 tag，例如：
+可以使用 `v0.1.0` 这类 release 版本 tag：
 
 ```bash
 docker pull ghcr.io/lobehub/device-gateway-go:v0.1.0
 docker pull ghcr.io/lobehub/agent-gateway-go:v0.1.0
+docker pull lobehub/device-gateway-go:v0.1.0
+docker pull lobehub/agent-gateway-go:v0.1.0
 ```
 
-非 prerelease 构建还会更新 `latest`。
+`latest` 指向已发布的最新非 prerelease 镜像。
 
 ## 架构
 
