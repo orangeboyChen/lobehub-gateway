@@ -16,6 +16,10 @@ on:
         description: Release version to build, for example "v0.1.0"
         required: true
         type: string
+      ref:
+        description: Git ref to build from, for example "v0.1.0" or "main"
+        required: false
+        type: string
       prerelease:
         description: Treat as prerelease and skip the latest tag
         required: false
@@ -45,6 +49,7 @@ jobs:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
           MANUAL_GATEWAY: ${{ inputs.gateway }}
           MANUAL_VERSION: ${{ inputs.version }}
+          MANUAL_REF: ${{ inputs.ref }}
           MATRIX_SERVICE: ${{ matrix.service }}
           PRERELEASE: ${{ github.event.release.prerelease || inputs.prerelease }}
           REPOSITORY_OWNER: ${{ github.repository_owner }}
@@ -58,7 +63,7 @@ jobs:
           if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
             service="$MANUAL_GATEWAY"
             version="$MANUAL_VERSION"
-            checkout_ref="${service}-${version}"
+            checkout_ref="${MANUAL_REF:-$GITHUB_REF_NAME}"
           elif [[ "$RELEASE_TAG" =~ ^(device-gateway-go|agent-gateway-go)[[:space:]_/-]+(.+)$ ]]; then
             service="${BASH_REMATCH[1]}"
             version="${BASH_REMATCH[2]}"
