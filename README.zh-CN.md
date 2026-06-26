@@ -23,7 +23,19 @@
 
 ## 安装
 
-版本号请参考 GitHub Releases。环境变量和运行配置请查看各 gateway 的 README。
+请使用 GitHub Releases 中发布的版本号。环境变量和运行配置请查看各 gateway 的 README。
+
+### 容器镜像
+
+发布版本会推送到 GHCR，镜像和发布标签的对应关系如下：
+
+| 发布标签格式 | 发布的镜像 |
+| --- | --- |
+| `device-gateway-go v0.1.0`、`device-gateway-go-v0.1.0`、`device-gateway-go/v0.1.0` | `ghcr.io/lobehub/device-gateway-go:v0.1.0` |
+| `agent-gateway-go v0.1.0`、`agent-gateway-go-v0.1.0`、`agent-gateway-go/v0.1.0` | `ghcr.io/lobehub/agent-gateway-go:v0.1.0` |
+| `v0.1.0` | 上面两个镜像都会以 `v0.1.0` 作为标签发布 |
+
+非预发布版本还会为每个已发布镜像更新 `latest` 标签。
 
 ### device-gateway-go
 

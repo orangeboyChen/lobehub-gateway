@@ -23,7 +23,19 @@ The original gateway implementations remain the protocol reference. This reposit
 
 ## Installation
 
-Use a version from the GitHub Releases page. See each gateway README for required environment variables and runtime configuration.
+Use a release version from the GitHub Releases page. See each gateway README for required environment variables and runtime configuration.
+
+### Container Images
+
+Published releases are pushed to GHCR as versioned images:
+
+| Release tag format | Published images |
+| --- | --- |
+| `device-gateway-go v0.1.0`, `device-gateway-go-v0.1.0`, `device-gateway-go/v0.1.0` | `ghcr.io/lobehub/device-gateway-go:v0.1.0` |
+| `agent-gateway-go v0.1.0`, `agent-gateway-go-v0.1.0`, `agent-gateway-go/v0.1.0` | `ghcr.io/lobehub/agent-gateway-go:v0.1.0` |
+| `v0.1.0` | Both images above, tagged as `v0.1.0` |
+
+Non-prerelease releases also update `latest` for each published image.
 
 ### device-gateway-go
 
