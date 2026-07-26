@@ -1,0 +1,148 @@
+name: Sync Upstream Gateway Image
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch: {}
+
+env:
+  UPSTREAM_REPO: lobehub/lobehub-gateway
+  IMAGE_NAME: lobehub-gateway
+
+concurrency:
+  group: gateway-sync
+  cancel-in-progress: false
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      should_build: ${{ steps.release.outputs.should_build }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - name: Find the latest upstream release
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          VERSION="$(gh api "repos/${{ env.UPSTREAM_REPO }}/releases/latest" --jq .tag_name)"
+          if [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
+            echo "::error::No stable upstream release was found."
+            exit 1
+          fi
+
+          OWNER_LC="$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')"
+          EXISTING_TAGS="$(gh api "users/${OWNER_LC}/packages/container/${{ env.IMAGE_NAME }}/versions" --paginate --jq '.[] | .metadata.container.tags[]?' 2>/dev/null || true)"
+          if printf '%s\n' "$EXISTING_TAGS" | grep -Fqx "$VERSION"; then
+            echo "${{ env.IMAGE_NAME }}:${VERSION} already exists."
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Building upstream release ${VERSION}."
+          echo "should_build=true" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: detect
+    if: needs.detect.outputs.should_build == 'true'
+    name: Build ${{ matrix.arch }} image
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - name: Checkout upstream release
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ env.UPSTREAM_REPO }}
+          ref: ${{ needs.detect.outputs.version }}
+          path: upstream
+
+      - name: Resolve image name
+        id: image
+        env:
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          OWNER_LC="$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')"
+          echo "name=ghcr.io/${OWNER_LC}/${{ env.IMAGE_NAME }}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push ${{ matrix.arch }} image
+        uses: docker/build-push-action@v6
+        with:
+          context: upstream
+          file: upstream/docker/Dockerfile
+          platforms: linux/${{ matrix.arch }}
+          push: true
+          tags: |
+            ${{ steps.image.outputs.name }}:${{ needs.detect.outputs.version }}-${{ matrix.arch }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ env.UPSTREAM_REPO }}
+            org.opencontainers.image.version=${{ needs.detect.outputs.version }}
+            org.opencontainers.image.revision=${{ needs.detect.outputs.version }}
+
+  publish:
+    name: Publish multi-architecture image
+    needs:
+      - detect
+      - build
+    if: needs.detect.outputs.should_build == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Resolve image name
+        id: image
+        env:
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          OWNER_LC="$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')"
+          echo "name=ghcr.io/${OWNER_LC}/${{ env.IMAGE_NAME }}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create and push multi-architecture manifest
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}
+          VERSION: ${{ needs.detect.outputs.version }}
+        run: |
+          set -euo pipefail
+          docker buildx imagetools create \
+            --tag "${IMAGE}:${VERSION}" \
+            --tag "${IMAGE}:latest" \
+            "${IMAGE}:${VERSION}-amd64" \
+            "${IMAGE}:${VERSION}-arm64"
